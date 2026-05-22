@@ -1,0 +1,101 @@
+name: PR Metadata Write
+description: Write JSON metadata into an HTML comment in the current pull request body
+branding:
+  icon: tag
+  color: blue
+
+inputs:
+  github-token:
+    description: Token used to update the pull request body
+    default: ${{ github.token }}
+    required: false
+  marker:
+    description: Marker name inside the HTML comment
+    default: pr-meta
+    required: false
+  data:
+    description: JSON-stringified object to write under the marker
+    required: true
+  merge:
+    description: When true, merge with existing metadata instead of replacing it
+    default: "false"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - id: write
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          function isPlainObject(v) {
+            return v !== null && typeof v === 'object' && !Array.isArray(v)
+          }
+
+          const pr = context.payload.pull_request
+
+          if (!pr) {
+            core.setFailed('This action can only run on pull_request events (no pull_request in context).')
+            return
+          }
+
+          const marker = core.getInput('marker') || 'pr-meta'
+          const merge = core.getBooleanInput('merge')
+
+          let data
+
+          try {
+            data = JSON.parse(core.getInput('data'))
+          } catch (err) {
+            core.setFailed(`Input "data" is not valid JSON: ${err.message}`)
+            return
+          }
+
+          const body = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pr.number,
+          })
+            .then(({ data }) => data.body?.trim() ?? '')
+
+          const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const re = new RegExp(`<!--\\s*${escaped}:\\s*([\\s\\S]*?)\\s*-->`)
+          const match = body.match(re)
+
+          let newVal = data
+
+          if (merge && match) {
+            let oldVal
+
+            try {
+              oldVal = JSON.parse(match[1])
+            } catch (err) {
+              core.setFailed(`Existing metadata under marker "${marker}" is not valid JSON: ${err.message}`)
+              return
+            }
+
+            if (!isPlainObject(oldVal) || !isPlainObject(newVal)) {
+              core.setFailed('merge=true requires both existing and incoming data to be plain objects.')
+              return
+            }
+
+            newVal = { ...oldVal, ...newVal }
+          }
+
+          const block = `<!-- ${marker}: ${JSON.stringify(newVal)} -->`
+
+          const newBody = match ?
+            body.replace(re, block) :
+              body.length === 0 ?
+              block :
+              `${body}\n\n${block}\n`
+
+          if (newBody !== body) {
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body: newBody,
+            })
+          }
