@@ -26,6 +26,10 @@ runs:
   steps:
     - id: write
       uses: actions/github-script@v7
+      env:
+        INPUT_MARKER: ${{ inputs.marker }}
+        INPUT_DATA: ${{ inputs.data }}
+        INPUT_MERGE: ${{ inputs.merge }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
