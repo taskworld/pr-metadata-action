@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: meta
-        uses: taskworld/pr-meta-action/read@v1
+        uses: taskworld/pr-metadata-action/read@v2
       - run: echo '${{ steps.meta.outputs.result }}'
         if: steps.meta.outputs.has-metadata == 'true'
 ```
@@ -59,12 +59,12 @@ permissions:
 
 ### Inputs
 
-| Name           | Required | Default               | Description                                                          |
-| -------------- | -------- | --------------------- | -------------------------------------------------------------------- |
-| `github-token` | no       | `${{ github.token }}` | Token used to update the PR body                                     |
-| `marker`       | no       | `pr-meta`         | Marker name inside the HTML comment                                  |
-| `data`         | **yes**  | —                     | JSON-stringified object to write under the marker                    |
-| `merge`        | no       | `"false"`             | If `"true"`, shallow-merge with existing metadata instead of replacing |
+| Name           | Required | Default               | Description                                                                          |
+| -------------- | -------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `github-token` | no       | `${{ github.token }}` | Token used to update the PR body                                                     |
+| `marker`       | no       | `pr-meta`             | Marker name inside the HTML comment                                                  |
+| `data`         | **yes**  | —                     | JSON-stringified string to write under the marker                                    |
+| `merge`        | no       | `false`               | If `true`, shallow-merge the incoming data with the existing instead of replacing it |
 
 When `merge` is `true`, both the existing and incoming values must be plain JSON objects.
 
@@ -81,7 +81,7 @@ jobs:
   write-metadata:
     runs-on: ubuntu-latest
     steps:
-      - uses: taskworld/pr-meta-action/write@v1
+      - uses: taskworld/pr-metadata-action/write@v2
         with:
           data: '{"reviewed":true,"version":"1.2.3"}'
           merge: "true"
