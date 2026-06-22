@@ -1,7 +1,7 @@
 name: tests-read
 
 on:
-  pull_request:
+  workflow_call:
 
 # read only needs to read; the seed step uses write, which needs write.
 permissions:

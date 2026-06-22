@@ -1,7 +1,7 @@
 name: tests-write
 
 on:
-  pull_request:
+  workflow_call:
 
 # write updates the PR body via the REST API
 permissions:

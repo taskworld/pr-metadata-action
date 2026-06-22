@@ -1,0 +1,20 @@
+name: tests
+
+on:
+  pull_request:
+
+# Both reusable workflows seed the PR body via the REST API.
+permissions:
+  pull-requests: write
+  contents: read
+
+# Run the two suites as a chain rather than in parallel: each one does a
+# whole-body read-modify-write on the same PR description, so running them
+# concurrently makes their writes clobber each other. `needs` serializes them.
+jobs:
+  read:
+    uses: ./.github/workflows/tests-read.yaml
+
+  write:
+    needs: read
+    uses: ./.github/workflows/tests-write.yaml
