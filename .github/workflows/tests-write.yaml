@@ -1,0 +1,53 @@
+name: tests-write
+
+on:
+  pull_request:
+
+# write updates the PR body via the REST API
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Replace: write a fresh blob under a non-default marker.
+      - id: seed
+        uses: ./write
+        with:
+          marker: test-write
+          data: '{"version":"1.2.3","reviewed":false}'
+
+      # Merge: shallow-merge new keys into the existing blob (merge=true).
+      - id: merge
+        uses: ./write
+        with:
+          marker: test-write
+          data: '{"reviewed":true,"author":"test"}'
+          merge: "true"
+
+      # Read it back to assert the round-trip survived the composite-input plumbing.
+      - id: read
+        uses: ./read
+        with:
+          marker: test-write
+
+      - name: Assert round-trip
+        env:
+          RESULT: ${{ steps.read.outputs.result }}
+          HAS_METADATA: ${{ steps.read.outputs.has-metadata }}
+        run: |
+          echo "has-metadata=$HAS_METADATA"
+          echo "result=$RESULT"
+
+          [ "$HAS_METADATA" = "true" ] || { echo "::error::marker not found"; exit 1; }
+
+          # Original key preserved by merge, overwritten key updated, new key added.
+          [ "$(echo "$RESULT" | jq -r '.version')"  = "1.2.3" ]    || { echo "::error::version not preserved"; exit 1; }
+          [ "$(echo "$RESULT" | jq -r '.reviewed')" = "true" ]     || { echo "::error::reviewed not merged (boolean input broken?)"; exit 1; }
+          [ "$(echo "$RESULT" | jq -r '.author')"   = "test" ] || { echo "::error::author not added"; exit 1; }
+
+          echo "write self-test passed"
