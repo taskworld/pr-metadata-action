@@ -1,0 +1,45 @@
+name: tests-read
+
+on:
+  pull_request:
+
+# read only needs to read; the seed step uses write, which needs write.
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Seed a known blob under a dedicated marker so the read is deterministic.
+      - id: seed
+        uses: ./write
+        with:
+          marker: test-read
+          data: '{"version":"4.5.6","reviewed":true}'
+
+      # Read via an explicit pr-number so the action takes the REST fetch path.
+      # The default path reads the event payload's PR body, which is captured
+      # when the run starts and so can't see the seed written above this run.
+      - id: read
+        uses: ./read
+        with:
+          marker: test-read
+          pr-number: ${{ github.event.pull_request.number }}
+
+      - name: Assert reads
+        env:
+          RESULT: ${{ steps.read.outputs.result }}
+          HAS_METADATA: ${{ steps.read.outputs.has-metadata }}
+        run: |
+          echo "has-metadata=$HAS_METADATA result=$RESULT"
+
+          [ "$HAS_METADATA" = "true" ] || { echo "::error::read missed the marker"; exit 1; }
+
+          [ "$(echo "$RESULT" | jq -r '.version')"  = "4.5.6" ] || { echo "::error::read wrong version"; exit 1; }
+          [ "$(echo "$RESULT" | jq -r '.reviewed')" = "true" ]  || { echo "::error::read wrong reviewed"; exit 1; }
+
+          echo "read self-test passed"
