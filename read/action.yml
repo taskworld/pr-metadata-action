@@ -22,14 +22,14 @@ outputs:
     description: true when the marker was found in the PR body, false otherwise
     value: ${{ steps.read.outputs.has-metadata }}
   result:
-    description: Parsed JSON (stringified). Empty string if the action fails
+    description: Parsed JSON or an empty string if the action fails
     value: ${{ steps.read.outputs.result }}
 
 runs:
   using: composite
   steps:
     - id: read
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         INPUT_MARKER: ${{ inputs.marker }}
         INPUT_PR_NUMBER: ${{ inputs.pr-number }}

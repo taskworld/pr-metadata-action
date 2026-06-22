@@ -14,18 +14,18 @@ inputs:
     default: pr-meta
     required: false
   data:
-    description: JSON-stringified object to write under the marker
+    description: JSON-stringified string to write under the marker
     required: true
   merge:
-    description: When true, merge with existing metadata instead of replacing it
-    default: "false"
+    description: When true, merge the incoming data with the existing instead of replacing it
+    default: false
     required: false
 
 runs:
   using: composite
   steps:
     - id: write
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         INPUT_MARKER: ${{ inputs.marker }}
         INPUT_DATA: ${{ inputs.data }}
