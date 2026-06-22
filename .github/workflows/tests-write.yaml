@@ -1,7 +1,7 @@
 name: tests-write
 
 on:
-  pull_request:
+  workflow_call:
 
 # write updates the PR body via the REST API
 permissions:
@@ -21,6 +21,11 @@ jobs:
           marker: test-write
           data: '{"version":"1.2.3","reviewed":false}'
 
+      # pulls.update is not immediately consistent, and the merge step below
+      # reads the body back to find the seeded marker. Let the seed propagate
+      # first, otherwise merge can miss it and append a duplicate block.
+      - run: sleep 10
+
       # Merge: shallow-merge new keys into the existing blob (merge=true).
       - id: merge
         uses: ./write
@@ -28,6 +33,9 @@ jobs:
           marker: test-write
           data: '{"reviewed":true,"author":"test"}'
           merge: "true"
+
+      # Same propagation delay before reading the merged result back.
+      - run: sleep 10
 
       # Read it back to assert the round-trip survived the composite-input plumbing.
       # Explicit pr-number forces the REST fetch path; the default path reads the
@@ -54,3 +62,33 @@ jobs:
           [ "$(echo "$RESULT" | jq -r '.author')"   = "test" ] || { echo "::error::author not added"; exit 1; }
 
           echo "write self-test passed"
+
+      # The write action exposes what it persisted as `data`/`changed` outputs.
+      - name: Assert write outputs
+        env:
+          SEED_DATA: ${{ steps.seed.outputs.data }}
+          SEED_CHANGED: ${{ steps.seed.outputs.changed }}
+          MERGE_DATA: ${{ steps.merge.outputs.data }}
+          MERGE_CHANGED: ${{ steps.merge.outputs.changed }}
+          RESULT: ${{ steps.read.outputs.result }}
+        run: |
+          echo "seed.data=$SEED_DATA seed.changed=$SEED_CHANGED"
+          echo "merge.data=$MERGE_DATA merge.changed=$MERGE_CHANGED"
+
+          # Both writes mutate the body, so changed must be true.
+          [ "$SEED_CHANGED" = "true" ]  || { echo "::error::seed.changed not true"; exit 1; }
+          [ "$MERGE_CHANGED" = "true" ] || { echo "::error::merge.changed not true"; exit 1; }
+
+          # Replace output reflects exactly what was passed in.
+          [ "$(echo "$SEED_DATA" | jq -r '.version')"  = "1.2.3" ] || { echo "::error::seed.data version wrong"; exit 1; }
+          [ "$(echo "$SEED_DATA" | jq -r '.reviewed')" = "false" ] || { echo "::error::seed.data reviewed wrong"; exit 1; }
+
+          # Merge output reflects the post-merge value (old ∪ new).
+          [ "$(echo "$MERGE_DATA" | jq -r '.version')"  = "1.2.3" ] || { echo "::error::merge.data version not preserved"; exit 1; }
+          [ "$(echo "$MERGE_DATA" | jq -r '.reviewed')" = "true" ]  || { echo "::error::merge.data reviewed not merged"; exit 1; }
+          [ "$(echo "$MERGE_DATA" | jq -r '.author')"   = "test" ]  || { echo "::error::merge.data author not added"; exit 1; }
+
+          # The merge output must match what a subsequent read sees.
+          [ "$(echo "$MERGE_DATA" | jq -S .)" = "$(echo "$RESULT" | jq -S .)" ] || { echo "::error::merge.data does not match read result"; exit 1; }
+
+          echo "write outputs self-test passed"

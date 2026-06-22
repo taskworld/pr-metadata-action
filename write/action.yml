@@ -21,6 +21,14 @@ inputs:
     default: "false"
     required: false
 
+outputs:
+  data:
+    description: JSON-stringified metadata that was written (after merge, if enabled)
+    value: ${{ steps.write.outputs.data }}
+  changed:
+    description: true when the PR body was updated, false when it was already up to date
+    value: ${{ steps.write.outputs.changed }}
+
 runs:
   using: composite
   steps:
@@ -95,7 +103,9 @@ runs:
               block :
               `${body}\n\n${block}\n`
 
-          if (newBody !== body) {
+          const changed = newBody !== body
+
+          if (changed) {
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -103,3 +113,6 @@ runs:
               body: newBody,
             })
           }
+
+          core.setOutput('data', JSON.stringify(newVal))
+          core.setOutput('changed', String(changed))

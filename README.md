@@ -68,6 +68,15 @@ permissions:
 
 When `merge` is `true`, both the existing and incoming values must be plain JSON objects.
 
+### Outputs
+
+| Name      | Description                                                                       |
+| --------- | --------------------------------------------------------------------------------- |
+| `data`    | JSON-stringified metadata that was written, after the merge if `merge` is enabled |
+| `changed` | `"true"` if the PR body was updated, `"false"` if it was already up to date        |
+
+`data` is the effective stored value, which is the most reliable way to learn the result of a `merge: "true"` write without reading the body back.
+
 ### Example
 
 ```yaml
@@ -81,10 +90,12 @@ jobs:
   write-metadata:
     runs-on: ubuntu-latest
     steps:
-      - uses: taskworld/pr-meta-action/write@v1
+      - id: meta
+        uses: taskworld/pr-meta-action/write@v1
         with:
           data: '{"reviewed":true,"version":"1.2.3"}'
           merge: "true"
+      - run: echo 'wrote ${{ steps.meta.outputs.data }} (changed=${{ steps.meta.outputs.changed }})'
 ```
 
 ## Notes

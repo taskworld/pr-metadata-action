@@ -1,7 +1,7 @@
 name: tests-read
 
 on:
-  pull_request:
+  workflow_call:
 
 # read only needs to read; the seed step uses write, which needs write.
 permissions:
@@ -20,6 +20,11 @@ jobs:
         with:
           marker: test-read
           data: '{"version":"4.5.6","reviewed":true}'
+
+      # The seed's pulls.update is not immediately consistent: a pulls.get
+      # right after it can hit a replica that hasn't caught up. Give it a
+      # moment to propagate before reading back.
+      - run: sleep 10
 
       # Read via an explicit pr-number so the action takes the REST fetch path.
       # The default path reads the event payload's PR body, which is captured
