@@ -30,10 +30,13 @@ jobs:
           merge: "true"
 
       # Read it back to assert the round-trip survived the composite-input plumbing.
+      # Explicit pr-number forces the REST fetch path; the default path reads the
+      # event payload body captured at run start, before the writes above.
       - id: read
         uses: ./read
         with:
           marker: test-write
+          pr-number: ${{ github.event.pull_request.number }}
 
       - name: Assert round-trip
         env:

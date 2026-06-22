@@ -21,14 +21,10 @@ jobs:
           marker: test-read
           data: '{"version":"4.5.6","reviewed":true}'
 
-      # Read from the triggering PR (default pr-number).
+      # Read via an explicit pr-number so the action takes the REST fetch path.
+      # The default path reads the event payload's PR body, which is captured
+      # when the run starts and so can't see the seed written above this run.
       - id: read
-        uses: ./read
-        with:
-          marker: test-read
-
-      # Read the same PR via an explicit pr-number (REST fallback path).
-      - id: read-explicit
         uses: ./read
         with:
           marker: test-read
@@ -38,17 +34,12 @@ jobs:
         env:
           RESULT: ${{ steps.read.outputs.result }}
           HAS_METADATA: ${{ steps.read.outputs.has-metadata }}
-          RESULT_EXPLICIT: ${{ steps.read-explicit.outputs.result }}
-          HAS_METADATA_EXPLICIT: ${{ steps.read-explicit.outputs.has-metadata }}
         run: |
-          echo "default:  has-metadata=$HAS_METADATA result=$RESULT"
-          echo "explicit: has-metadata=$HAS_METADATA_EXPLICIT result=$RESULT_EXPLICIT"
+          echo "has-metadata=$HAS_METADATA result=$RESULT"
 
-          [ "$HAS_METADATA" = "true" ]          || { echo "::error::default read missed the marker"; exit 1; }
-          [ "$HAS_METADATA_EXPLICIT" = "true" ] || { echo "::error::explicit read missed the marker"; exit 1; }
+          [ "$HAS_METADATA" = "true" ] || { echo "::error::read missed the marker"; exit 1; }
 
-          [ "$(echo "$RESULT" | jq -r '.version')"           = "4.5.6" ] || { echo "::error::default read wrong version"; exit 1; }
-          [ "$(echo "$RESULT_EXPLICIT" | jq -r '.version')"  = "4.5.6" ] || { echo "::error::explicit read wrong version"; exit 1; }
-          [ "$(echo "$RESULT" | jq -r '.reviewed')"          = "true" ]  || { echo "::error::default read wrong reviewed"; exit 1; }
+          [ "$(echo "$RESULT" | jq -r '.version')"  = "4.5.6" ] || { echo "::error::read wrong version"; exit 1; }
+          [ "$(echo "$RESULT" | jq -r '.reviewed')" = "true" ]  || { echo "::error::read wrong reviewed"; exit 1; }
 
           echo "read self-test passed"
